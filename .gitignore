@@ -1,0 +1,14 @@
+.DS_Store
+.build/
+DerivedData/
+*.xcodeproj/
+*.xcworkspace/
+*.swp
+*.log
+
+# Generated local app bundle.
+JarvisPCControl.app/
+
+# Local macOS metadata.
+*.xcuserstate
+*.xcuserdatad/
