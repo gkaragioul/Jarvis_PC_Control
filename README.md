@@ -19,6 +19,7 @@ It is built as a small Swift/AppKit app that lives in the macOS status bar as `J
 - Ollama API: `http://jarvis-pc:11434`
 - Jarvis storage target on the PC: `X:\`
 - macOS app install target: `/Applications/JarvisPCControl.app`
+- Wake-on-LAN target MAC: `04:7C:16:BA:A2:FC`
 
 ## Build
 
@@ -33,6 +34,12 @@ Tools/install.sh
 ```
 
 The installer rebuilds the app, regenerates the app icon, replaces the copy in `/Applications`, refreshes the Dock entry, updates the Desktop alias, and reloads the login LaunchAgent.
+
+## Wake-on-LAN
+
+The app includes a Wake button that sends magic packets for the PC Ethernet adapter.
+
+Wake-on-LAN is configured in Windows for the Realtek Ethernet adapter, but full shutdown wake also depends on BIOS/UEFI and network routing. The PC BIOS should have Wake-on-LAN or PCIe wake enabled, ErP/deep sleep disabled, and optionally restore power after AC loss enabled.
 
 ## Repository
 

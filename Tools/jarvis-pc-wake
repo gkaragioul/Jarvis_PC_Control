@@ -1,0 +1,37 @@
+#!/usr/bin/env python3
+import socket
+import time
+
+MAC = "04:7C:16:BA:A2:FC"
+BROADCASTS = [
+    "255.255.255.255",
+    "192.168.1.255",
+    "192.168.2.255",
+]
+PORTS = [9, 7]
+
+
+def magic_packet(mac: str) -> bytes:
+    clean = mac.replace(":", "").replace("-", "").strip()
+    if len(clean) != 12:
+        raise ValueError(f"Invalid MAC address: {mac}")
+    mac_bytes = bytes.fromhex(clean)
+    return b"\xff" * 6 + mac_bytes * 16
+
+
+def main() -> None:
+    packet = magic_packet(MAC)
+    sent = []
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+        for _ in range(3):
+            for host in BROADCASTS:
+                for port in PORTS:
+                    sock.sendto(packet, (host, port))
+                    sent.append(f"{host}:{port}")
+            time.sleep(0.25)
+    print(f"Sent Wake-on-LAN magic packets to {MAC} via {', '.join(sorted(set(sent)))}")
+
+
+if __name__ == "__main__":
+    main()

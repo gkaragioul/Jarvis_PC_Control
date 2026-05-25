@@ -129,6 +129,7 @@ final class JarvisPCController: ObservableObject {
     @Published var loadedModels: [LoadedModel] = []
     @Published var pcStats: PCStats?
     @Published var lastUpdated: Date?
+    @Published var wakeStatus: String?
 
     var onStatusTitleChange: ((String) -> Void)?
 
@@ -181,6 +182,25 @@ final class JarvisPCController: ObservableObject {
     func offloadModel() async {
         await runModelAction(keepAlive: "0", prompt: "")
         await refresh()
+    }
+
+    func wakePC() async {
+        isBusy = true
+        wakeStatus = "Sending wake packet..."
+        defer { isBusy = false }
+
+        do {
+            let output = try await runProcess(
+                "/Users/georgekarangioules/.local/bin/jarvis-pc-wake",
+                arguments: [],
+                timeout: 8
+            )
+            wakeStatus = output.isEmpty ? "Wake packet sent" : output
+            lastError = nil
+        } catch {
+            wakeStatus = nil
+            lastError = "Wake failed: \(shortError(error))"
+        }
     }
 
     func openRemoteDesktop() {
@@ -283,6 +303,7 @@ struct JarvisPCView: View {
                     ollamaCard
                     pcStatsCard
                     controls
+                    wakeStatusPanel
                     errorPanel
                 }
                 .padding(16)
@@ -470,12 +491,33 @@ struct JarvisPCView: View {
             .disabled(controller.isBusy)
 
             HStack(spacing: 10) {
+                ControlButton(title: "Wake", icon: "power.circle.fill") {
+                    Task { await controller.wakePC() }
+                }
                 ControlButton(title: "Remote Desktop", icon: "display") {
                     controller.openRemoteDesktop()
                 }
                 ControlButton(title: "SSH", icon: "terminal") {
                     controller.openTerminalSSH()
                 }
+            }
+        }
+    }
+
+    private var wakeStatusPanel: some View {
+        Group {
+            if let wakeStatus = controller.wakeStatus {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "power.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(wakeStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.green.opacity(0.08)))
             }
         }
     }

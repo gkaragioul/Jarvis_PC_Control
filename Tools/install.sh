@@ -21,6 +21,9 @@ mkdir -p "${APP_NAME}/Contents/Resources"
 cp Resources/AppIcon.icns "${APP_NAME}/Contents/Resources/AppIcon.icns"
 cp ".build/debug/JarvisPCControl" "${APP_NAME}/Contents/MacOS/JarvisPCControl"
 
+mkdir -p "${HOME}/.local/bin"
+install -m 755 Tools/jarvis-pc-wake "${HOME}/.local/bin/jarvis-pc-wake"
+
 rm -rf "$SYSTEM_APP"
 ditto "$APP_NAME" "$SYSTEM_APP"
 touch "$SYSTEM_APP" "$SYSTEM_APP/Contents" "$SYSTEM_APP/Contents/Info.plist" "$SYSTEM_APP/Contents/Resources/AppIcon.icns"
