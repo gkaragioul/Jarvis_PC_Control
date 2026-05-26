@@ -124,6 +124,7 @@ struct PCStats: Decodable {
 @MainActor
 final class JarvisPCController: ObservableObject {
     @Published var isOnline = false
+    @Published var isOllamaReachable = false
     @Published var isBusy = false
     @Published var lastError: String?
     @Published var loadedModels: [LoadedModel] = []
@@ -150,29 +151,30 @@ final class JarvisPCController: ObservableObject {
         isBusy = true
         defer { isBusy = false }
 
+        var errors: [String] = []
+
         do {
             let models = try await fetchOllamaPS()
             loadedModels = models
-            isOnline = true
-            lastError = nil
-
-            do {
-                pcStats = try await fetchPCStats()
-            } catch {
-                pcStats = nil
-                lastError = "PC stats unavailable: \(shortError(error))"
-            }
-
-            lastUpdated = Date()
-            updateMenuTitle()
+            isOllamaReachable = true
         } catch {
-            isOnline = false
+            isOllamaReachable = false
             loadedModels = []
-            pcStats = nil
-            lastError = shortError(error)
-            lastUpdated = Date()
-            updateMenuTitle()
+            errors.append("Ollama unavailable: \(shortError(error))")
         }
+
+        do {
+            pcStats = try await fetchPCStats()
+            isOnline = true
+        } catch {
+            pcStats = nil
+            isOnline = isOllamaReachable
+            errors.append("PC stats unavailable: \(shortError(error))")
+        }
+
+        lastError = isOnline ? nil : errors.joined(separator: " ")
+        lastUpdated = Date()
+        updateMenuTitle()
     }
 
     func warmModel() async {
@@ -218,7 +220,7 @@ final class JarvisPCController: ObservableObject {
 
     func sleepJarvisVoice() async {
         isBusy = true
-        actionStatus = "Stopping Jarvis voice/TTS..."
+        actionStatus = "Stopping Jarvis stack..."
         defer { isBusy = false }
 
         do {
@@ -227,7 +229,7 @@ final class JarvisPCController: ObservableObject {
                 arguments: [],
                 timeout: 20
             )
-            actionStatus = output.isEmpty ? "Jarvis voice/TTS asleep." : output
+            actionStatus = output.isEmpty ? "Jarvis stack asleep." : output
             lastError = nil
             await refresh()
         } catch {
@@ -238,7 +240,7 @@ final class JarvisPCController: ObservableObject {
 
     func startJarvisVoice() async {
         isBusy = true
-        actionStatus = "Starting Jarvis voice/TTS..."
+        actionStatus = "Starting Jarvis stack..."
         defer { isBusy = false }
 
         do {
@@ -247,7 +249,7 @@ final class JarvisPCController: ObservableObject {
                 arguments: [],
                 timeout: 45
             )
-            actionStatus = output.isEmpty ? "Jarvis voice/TTS awake." : output
+            actionStatus = output.isEmpty ? "Jarvis stack awake." : output
             lastError = nil
             await refresh()
         } catch {
@@ -416,12 +418,12 @@ struct JarvisPCView: View {
 
                 if controller.loadedModels.isEmpty {
                     HStack(spacing: 10) {
-                        Image(systemName: controller.isOnline ? "snowflake" : "wifi.slash")
-                            .foregroundStyle(controller.isOnline ? .blue : .red)
+                        Image(systemName: controller.isOllamaReachable ? "snowflake" : "powerplug.portrait")
+                            .foregroundStyle(controller.isOllamaReachable ? .blue : .orange)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(controller.isOnline ? "No model loaded" : "Not reachable")
+                            Text(controller.isOllamaReachable ? "No model loaded" : "Ollama asleep")
                                 .font(.system(size: 15, weight: .semibold))
-                            Text(controller.isOnline ? "Press Warm to load qwen3:14b." : "Check Tailscale, PC power, or Ollama.")
+                            Text(controller.isOllamaReachable ? "Press Warm to load qwen3:14b." : "Press Start Jarvis to bring the stack back.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -578,7 +580,7 @@ struct JarvisPCView: View {
                 ControlButton(title: "Sleep Jarvis", icon: "moon.zzz.fill") {
                     Task { await controller.sleepJarvisVoice() }
                 }
-                ControlButton(title: "Start Voice", icon: "waveform") {
+                ControlButton(title: "Start Jarvis", icon: "waveform") {
                     Task { await controller.startJarvisVoice() }
                 }
             }

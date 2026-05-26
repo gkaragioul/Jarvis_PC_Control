@@ -7,12 +7,39 @@ PS_SCRIPT=$(cat <<'PS'
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$tasks = @("Jarvis Remote TTS Server", "Jarvis PC Voice Server")
-foreach ($task in $tasks) {
+$enableTasks = @("Ollama GPU Server", "Ollama GPU Server Watchdog", "Jarvis Remote TTS Server", "Jarvis PC Voice Server")
+foreach ($task in $enableTasks) {
+  Enable-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue | Out-Null
+}
+
+$ollama = Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue
+if (-not $ollama) {
+  Start-ScheduledTask -TaskName "Ollama GPU Server" -ErrorAction Stop | Out-Null
+}
+
+$ollamaReady = $false
+foreach ($attempt in 1..20) {
+  Start-Sleep -Seconds 1
+  $ollama = Get-NetTCPConnection -LocalPort 11434 -State Listen -ErrorAction SilentlyContinue
+  if ($ollama) {
+    $ollamaReady = $true
+    break
+  }
+}
+
+if (-not $ollamaReady) {
+  Write-Error "Ollama did not start on port 11434"
+  exit 1
+}
+
+Start-ScheduledTask -TaskName "Ollama GPU Server Watchdog" -ErrorAction SilentlyContinue | Out-Null
+
+$voiceTasks = @("Jarvis Remote TTS Server", "Jarvis PC Voice Server")
+foreach ($task in $voiceTasks) {
   Start-ScheduledTask -TaskName $task -ErrorAction Stop | Out-Null
 }
 
-Start-Sleep -Seconds 6
+Start-Sleep -Seconds 8
 
 $ports = @(11550, 11551)
 $listening = @()
@@ -28,7 +55,7 @@ $freeGB = [math]::Round($memory.FreePhysicalMemory / 1MB, 1)
 $totalGB = [math]::Round($memory.TotalVisibleMemorySize / 1MB, 1)
 
 if ($listening.Count -eq $ports.Count) {
-  Write-Output "Jarvis voice/TTS awake. Free RAM: $freeGB/$totalGB GB."
+  Write-Output "Jarvis stack awake. Free RAM: $freeGB/$totalGB GB."
 } else {
   $missing = ($ports | Where-Object { $listening -notcontains $_ }) -join ", "
   Write-Error "Started tasks, but ports not ready yet: $missing"

@@ -7,7 +7,12 @@ PS_SCRIPT=$(cat <<'PS'
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
-$tasks = @("Jarvis Remote TTS Server", "Jarvis PC Voice Server")
+$tasks = @(
+  "Jarvis Remote TTS Server",
+  "Jarvis PC Voice Server",
+  "Ollama GPU Server Watchdog",
+  "Ollama GPU Server"
+)
 foreach ($task in $tasks) {
   try {
     Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue | Out-Null
@@ -15,7 +20,19 @@ foreach ($task in $tasks) {
   }
 }
 
-$patterns = @("jarvis_tts_server:app", "jarvis_voice_server:app")
+$disableTasks = @("Ollama GPU Server Watchdog")
+foreach ($task in $disableTasks) {
+  try {
+    Disable-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue | Out-Null
+  } catch {
+  }
+}
+
+$patterns = @(
+  "jarvis_tts_server:app",
+  "jarvis_voice_server:app",
+  "X:\Jarvis\Ollama\app\ollama.exe"
+)
 $targets = Get-CimInstance Win32_Process |
   Where-Object {
     $commandLine = $_.CommandLine
@@ -41,11 +58,11 @@ $totalGB = [math]::Round($memory.TotalVisibleMemorySize / 1MB, 1)
 
 if ($remaining) {
   $names = ($remaining | ForEach-Object { "$($_.Name)#$($_.ProcessId)" }) -join ", "
-  Write-Error "Jarvis voice/TTS still running: $names"
+  Write-Error "Jarvis stack still running: $names"
   exit 1
 }
 
-Write-Output "Jarvis voice/TTS asleep. Free RAM: $freeGB/$totalGB GB."
+Write-Output "Jarvis stack asleep. Free RAM: $freeGB/$totalGB GB."
 PS
 )
 
