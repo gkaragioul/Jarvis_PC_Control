@@ -180,7 +180,19 @@ final class JarvisPCController: ObservableObject {
     }
 
     func offloadModel() async {
-        await runModelAction(keepAlive: "0", prompt: "")
+        isBusy = true
+        defer { isBusy = false }
+
+        do {
+            let models = try await fetchOllamaPS()
+            let names = models.isEmpty ? [modelName] : models.map(\.name)
+            for name in names {
+                try await unloadModel(name)
+            }
+            lastError = nil
+        } catch {
+            lastError = shortError(error)
+        }
         await refresh()
     }
 
@@ -269,6 +281,24 @@ final class JarvisPCController: ObservableObject {
             lastError = nil
         } catch {
             lastError = shortError(error)
+        }
+    }
+
+    private func unloadModel(_ name: String) async throws {
+        let url = URL(string: "http://\(pcHost):11434/api/generate")!
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.timeoutInterval = 30
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let payload: [String: Any] = [
+            "model": name,
+            "stream": false,
+            "keep_alive": 0
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+        let (_, response) = try await URLSession.shared.data(for: request)
+        guard (response as? HTTPURLResponse)?.statusCode == 200 else {
+            throw RuntimeError("Ollama did not unload \(name)")
         }
     }
 
