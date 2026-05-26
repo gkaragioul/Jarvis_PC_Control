@@ -130,6 +130,7 @@ final class JarvisPCController: ObservableObject {
     @Published var pcStats: PCStats?
     @Published var lastUpdated: Date?
     @Published var wakeStatus: String?
+    @Published var actionStatus: String?
 
     var onStatusTitleChange: ((String) -> Void)?
 
@@ -212,6 +213,46 @@ final class JarvisPCController: ObservableObject {
         } catch {
             wakeStatus = nil
             lastError = "Wake failed: \(shortError(error))"
+        }
+    }
+
+    func sleepJarvisVoice() async {
+        isBusy = true
+        actionStatus = "Stopping Jarvis voice/TTS..."
+        defer { isBusy = false }
+
+        do {
+            let output = try await runProcess(
+                "/Users/georgekarangioules/.local/bin/jarvis-pc-sleep-voice",
+                arguments: [],
+                timeout: 20
+            )
+            actionStatus = output.isEmpty ? "Jarvis voice/TTS asleep." : output
+            lastError = nil
+            await refresh()
+        } catch {
+            actionStatus = nil
+            lastError = "Sleep Jarvis failed: \(shortError(error))"
+        }
+    }
+
+    func startJarvisVoice() async {
+        isBusy = true
+        actionStatus = "Starting Jarvis voice/TTS..."
+        defer { isBusy = false }
+
+        do {
+            let output = try await runProcess(
+                "/Users/georgekarangioules/.local/bin/jarvis-pc-start-voice",
+                arguments: [],
+                timeout: 45
+            )
+            actionStatus = output.isEmpty ? "Jarvis voice/TTS awake." : output
+            lastError = nil
+            await refresh()
+        } catch {
+            actionStatus = nil
+            lastError = "Start voice failed: \(shortError(error))"
         }
     }
 
@@ -333,6 +374,7 @@ struct JarvisPCView: View {
                     ollamaCard
                     pcStatsCard
                     controls
+                    actionStatusPanel
                     wakeStatusPanel
                     errorPanel
                 }
@@ -530,6 +572,34 @@ struct JarvisPCView: View {
                 ControlButton(title: "SSH", icon: "terminal") {
                     controller.openTerminalSSH()
                 }
+            }
+
+            HStack(spacing: 10) {
+                ControlButton(title: "Sleep Jarvis", icon: "moon.zzz.fill") {
+                    Task { await controller.sleepJarvisVoice() }
+                }
+                ControlButton(title: "Start Voice", icon: "waveform") {
+                    Task { await controller.startJarvisVoice() }
+                }
+            }
+            .disabled(controller.isBusy)
+        }
+    }
+
+    private var actionStatusPanel: some View {
+        Group {
+            if let actionStatus = controller.actionStatus {
+                HStack(alignment: .top, spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text(actionStatus)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 10).fill(Color.green.opacity(0.08)))
             }
         }
     }
@@ -775,7 +845,15 @@ func runProcess(_ executable: String, arguments: [String], timeout: TimeInterval
         process.standardError = error
 
         try process.run()
-        process.waitUntilExit()
+        let deadline = Date().addingTimeInterval(timeout)
+        while process.isRunning && Date() < deadline {
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        if process.isRunning {
+            process.terminate()
+            process.waitUntilExit()
+            throw RuntimeError("Process timed out after \(Int(timeout))s")
+        }
 
         let data = output.fileHandleForReading.readDataToEndOfFile()
         let errorData = error.fileHandleForReading.readDataToEndOfFile()

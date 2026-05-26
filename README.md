@@ -10,6 +10,8 @@ It is built as a small Swift/AppKit app that lives in the macOS status bar as `J
 - Displays CPU, memory, GPU, VRAM, temperature, power, uptime, and X: drive space stats.
 - Warms the configured Ollama model so local Jarvis responses stay responsive.
 - Offloads the model when the PC should release GPU memory.
+- Puts Jarvis voice/TTS services to sleep when you want to reclaim system RAM.
+- Starts the Jarvis voice/TTS services again through the PC scheduled tasks.
 - Opens SSH and Chrome Remote Desktop shortcuts.
 - Installs itself into `/Applications`, updates the Dock icon, creates a Desktop alias, and registers a LaunchAgent so it starts when the Mac logs in.
 

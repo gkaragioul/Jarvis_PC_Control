@@ -23,6 +23,8 @@ cp ".build/debug/JarvisPCControl" "${APP_NAME}/Contents/MacOS/JarvisPCControl"
 
 mkdir -p "${HOME}/.local/bin"
 install -m 755 Tools/jarvis-pc-wake "${HOME}/.local/bin/jarvis-pc-wake"
+install -m 755 Tools/jarvis-pc-sleep-voice "${HOME}/.local/bin/jarvis-pc-sleep-voice"
+install -m 755 Tools/jarvis-pc-start-voice "${HOME}/.local/bin/jarvis-pc-start-voice"
 
 rm -rf "$SYSTEM_APP"
 ditto "$APP_NAME" "$SYSTEM_APP"

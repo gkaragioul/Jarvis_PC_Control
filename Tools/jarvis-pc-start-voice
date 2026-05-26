@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SSH_HOST="${JARVIS_PC_SSH_HOST:-jarvis-pc}"
+
+PS_SCRIPT=$(cat <<'PS'
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+
+$tasks = @("Jarvis Remote TTS Server", "Jarvis PC Voice Server")
+foreach ($task in $tasks) {
+  Start-ScheduledTask -TaskName $task -ErrorAction Stop | Out-Null
+}
+
+Start-Sleep -Seconds 6
+
+$ports = @(11550, 11551)
+$listening = @()
+foreach ($port in $ports) {
+  $connection = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue
+  if ($connection) {
+    $listening += $port
+  }
+}
+
+$memory = Get-CimInstance Win32_OperatingSystem
+$freeGB = [math]::Round($memory.FreePhysicalMemory / 1MB, 1)
+$totalGB = [math]::Round($memory.TotalVisibleMemorySize / 1MB, 1)
+
+if ($listening.Count -eq $ports.Count) {
+  Write-Output "Jarvis voice/TTS awake. Free RAM: $freeGB/$totalGB GB."
+} else {
+  $missing = ($ports | Where-Object { $listening -notcontains $_ }) -join ", "
+  Write-Error "Started tasks, but ports not ready yet: $missing"
+  exit 1
+}
+PS
+)
+
+ENCODED_COMMAND=$(printf '%s' "$PS_SCRIPT" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
+ssh -o ConnectTimeout=8 "$SSH_HOST" powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "$ENCODED_COMMAND"

@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+SSH_HOST="${JARVIS_PC_SSH_HOST:-jarvis-pc}"
+
+PS_SCRIPT=$(cat <<'PS'
+$ErrorActionPreference = "Stop"
+$ProgressPreference = "SilentlyContinue"
+
+$tasks = @("Jarvis Remote TTS Server", "Jarvis PC Voice Server")
+foreach ($task in $tasks) {
+  try {
+    Stop-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue | Out-Null
+  } catch {
+  }
+}
+
+$patterns = @("jarvis_tts_server:app", "jarvis_voice_server:app")
+$targets = Get-CimInstance Win32_Process |
+  Where-Object {
+    $commandLine = $_.CommandLine
+    $commandLine -and ($patterns | Where-Object { $commandLine -like "*$_*" })
+  } |
+  Sort-Object ProcessId -Unique
+
+foreach ($process in $targets) {
+  Stop-Process -Id $process.ProcessId -Force -ErrorAction SilentlyContinue
+}
+
+Start-Sleep -Seconds 2
+
+$remaining = Get-CimInstance Win32_Process |
+  Where-Object {
+    $commandLine = $_.CommandLine
+    $commandLine -and ($patterns | Where-Object { $commandLine -like "*$_*" })
+  }
+
+$memory = Get-CimInstance Win32_OperatingSystem
+$freeGB = [math]::Round($memory.FreePhysicalMemory / 1MB, 1)
+$totalGB = [math]::Round($memory.TotalVisibleMemorySize / 1MB, 1)
+
+if ($remaining) {
+  $names = ($remaining | ForEach-Object { "$($_.Name)#$($_.ProcessId)" }) -join ", "
+  Write-Error "Jarvis voice/TTS still running: $names"
+  exit 1
+}
+
+Write-Output "Jarvis voice/TTS asleep. Free RAM: $freeGB/$totalGB GB."
+PS
+)
+
+ENCODED_COMMAND=$(printf '%s' "$PS_SCRIPT" | iconv -f UTF-8 -t UTF-16LE | base64 | tr -d '\n')
+ssh -o ConnectTimeout=8 "$SSH_HOST" powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "$ENCODED_COMMAND"
