@@ -4,6 +4,8 @@ Jarvis PC Control is a macOS menu-bar utility for managing the remote Jarvis Win
 
 It is built as a small Swift/AppKit app that lives in the macOS status bar as `J`. The app gives fast access to the remote machine, Ollama health, model warm/offload actions, SSH, Chrome Remote Desktop, and live machine stats.
 
+The source code, scripts, and documentation are MIT licensed. The current logo and app icon assets are reserved separately because their provenance has not been confirmed.
+
 ## What It Does
 
 - Shows whether the remote PC and Ollama are reachable.
@@ -46,3 +48,11 @@ Wake-on-LAN is configured in Windows for the Realtek Ethernet adapter, but full 
 ## Repository
 
 This repository tracks the source and install tooling for Jarvis PC Control. Build products and generated `.app` bundles are intentionally excluded.
+
+## License
+
+Source code, scripts, and documentation are licensed under the [MIT License](LICENSE).
+
+The logo, app icon, generated iconset files, and other image assets in [`Resources/`](Resources/) are not covered by the MIT License unless a specific file states otherwise. See [`Resources/LICENSE.md`](Resources/LICENSE.md).
+
+Third-party tools and services used with this project, including macOS, Swift/AppKit, Ollama, SSH, Chrome Remote Desktop, and Windows scheduled tasks, remain under their own licenses and terms.
